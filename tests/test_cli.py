@@ -1559,6 +1559,38 @@ class CommandAcceptanceTests(unittest.TestCase):
             stdout.getvalue(),
         )
 
+    def test_npath_counts_match_fall_through_without_default_case(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            temporary = Path(temporary_directory)
+            source = temporary / "match_fall_through.py"
+            ruleset = temporary / "npath.xml"
+            source.write_text(
+                "def branch(x):\n"
+                "    match x:\n"
+                "        case 1:\n"
+                "            return 1\n"
+                "    return 0\n",
+                encoding="utf-8",
+            )
+            ruleset.write_text(
+                """<ruleset name="npath">
+    <rule ref="NPathComplexity"><properties><property name="minimum" value="2" /></properties></rule>
+</ruleset>
+""",
+                encoding="utf-8",
+            )
+            stdout = StringIO()
+            stderr = StringIO()
+
+            status = run([str(source), "text", str(ruleset)], stdout, stderr)
+
+        self.assertEqual(2, status)
+        self.assertEqual("", stderr.getvalue())
+        self.assertIn(
+            "The function branch() has an NPath complexity of 2. The configured NPath complexity threshold is 2.",
+            stdout.getvalue(),
+        )
+
     def test_npath_counts_with_statement_body_branches(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             temporary = Path(temporary_directory)
@@ -1702,7 +1734,7 @@ class CommandAcceptanceTests(unittest.TestCase):
             )
             ruleset.write_text(
                 """<ruleset name="npath">
-    <rule ref="NPathComplexity"><properties><property name="minimum" value="6" /></properties></rule>
+    <rule ref="NPathComplexity"><properties><property name="minimum" value="9" /></properties></rule>
 </ruleset>
 """,
                 encoding="utf-8",
@@ -1715,7 +1747,7 @@ class CommandAcceptanceTests(unittest.TestCase):
         self.assertEqual(2, status)
         self.assertEqual("", stderr.getvalue())
         self.assertIn(
-            "The function process() has an NPath complexity of 6. The configured NPath complexity threshold is 6.",
+            "The function process() has an NPath complexity of 9. The configured NPath complexity threshold is 9.",
             stdout.getvalue(),
         )
 
