@@ -5136,6 +5136,12 @@ def _unsuppressed(findings: Sequence[Finding]) -> list[Finding]:
 
 def _apply_suppressions(source: str, tree: ast.Module, findings: Sequence[Finding]) -> list[Finding]:
     directives, source_lines = _suppression_directives(source)
+    source_line_set = set(source_lines)
+    comment_finding_rules: dict[int, set[str]] = {}
+    for finding in findings:
+        if finding.line not in source_line_set:
+            comment_finding_rules.setdefault(finding.line, set()).add(_rule_identity(finding.rule_name))
+    source_lines = sorted(source_line_set | set(comment_finding_rules))
     decorated_headers = _decorated_definition_lines(tree)
     active_counts: dict[str, int] = {}
     next_line_rules: dict[int, set[str]] = {}
@@ -5145,7 +5151,12 @@ def _apply_suppressions(source: str, tree: ast.Module, findings: Sequence[Findin
     for finding in sorted(findings, key=lambda candidate: candidate.line):
         while directive_index < directive_count and directives[directive_index][0] < finding.line:
             _apply_suppression_directive(
-                directives[directive_index], source_lines, decorated_headers, active_counts, next_line_rules
+                directives[directive_index],
+                source_lines,
+                comment_finding_rules,
+                decorated_headers,
+                active_counts,
+                next_line_rules,
             )
             directive_index += 1
         identity = _rule_identity(finding.rule_name)
@@ -5171,6 +5182,7 @@ def _decorated_definition_lines(tree: ast.Module) -> dict[int, int]:
 def _apply_suppression_directive(
     directive: tuple[int, str, set[str]],
     source_lines: list[int],
+    comment_finding_rules: dict[int, set[str]],
     decorated_headers: dict[int, int],
     active_counts: dict[str, int],
     next_line_rules: dict[int, set[str]],
@@ -5178,12 +5190,16 @@ def _apply_suppression_directive(
     line, action, rule_names = directive
     if action == "disable-next-line":
         next_line_index = bisect_right(source_lines, line)
-        if next_line_index < len(source_lines):
-            target_line = source_lines[next_line_index]
+        for target_line in source_lines[next_line_index:]:
+            if target_line in comment_finding_rules and not (
+                comment_finding_rules[target_line] & rule_names
+            ):
+                continue
             next_line_rules.setdefault(target_line, set()).update(rule_names)
             header_line = decorated_headers.get(target_line)
             if header_line is not None:
                 next_line_rules.setdefault(header_line, set()).update(rule_names)
+            break
         return
     delta = 1 if action == "disable" else -1
     for rule_name in rule_names:
