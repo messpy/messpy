@@ -5293,6 +5293,51 @@ class CommandAcceptanceTests(unittest.TestCase):
             )
             self.assertEqual((0, "", ""), (status, stdout.getvalue(), stderr.getvalue()))
 
+    def test_global_variable_ignores_class_attribute_assignments(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            source = Path(temporary_directory) / "class_attributes.py"
+            source.write_text(
+                "state = 0\n"
+                "typed_state = None\n"
+                "\n"
+                "class Container:\n"
+                "    state = 1\n"
+                "    typed_state: str = \"active\"\n",
+                encoding="utf-8",
+            )
+            stdout = StringIO()
+            stderr = StringIO()
+            status = run([str(source), "text", "design", "--only", "GlobalVariable"], stdout, stderr)
+
+        self.assertEqual((0, "", ""), (status, stdout.getvalue(), stderr.getvalue()))
+
+    def test_global_variable_reports_explicit_global_assignments_in_class_bodies(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            source = Path(temporary_directory) / "class_globals.py"
+            source.write_text(
+                "state = {}\n"
+                "nested_state = {}\n"
+                "\n"
+                "class Container:\n"
+                "    global state\n"
+                "    state = {}\n"
+                "\n"
+                "def outer():\n"
+                "    class Nested:\n"
+                "        global nested_state\n"
+                "        nested_state = {}\n",
+                encoding="utf-8",
+            )
+            stdout = StringIO()
+            stderr = StringIO()
+            status = run([str(source), "text", "design", "--only", "GlobalVariable"], stdout, stderr)
+
+        self.assertEqual(2, status)
+        self.assertEqual("", stderr.getvalue())
+        report = stdout.getvalue()
+        self.assertIn("state", report)
+        self.assertIn("nested_state", report)
+
     def test_global_variable_reports_same_scope_and_nested_mutations(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             source = Path(temporary_directory) / "scoped_global.py"
