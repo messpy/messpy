@@ -532,6 +532,29 @@ class CommandAcceptanceTests(unittest.TestCase):
         self.assertEqual(f"{_finding_for(source, 'still_reported', 104)}\n", stdout.getvalue())
         self.assertEqual("", stderr.getvalue())
 
+    def test_disable_next_line_suppresses_marker_comment_without_leaking_to_code(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            source = Path(temporary_directory) / "marker.py"
+            source.write_text(
+                "# messpy-disable-next-line DevelopmentCodeFragment\n"
+                "# TODO: review this implementation\n"
+                "breakpoint()\n",
+                encoding="utf-8",
+            )
+
+            stdout = StringIO()
+            stderr = StringIO()
+            status = run(
+                [str(source), "text", "design", "--only", "DevelopmentCodeFragment"], stdout, stderr
+            )
+
+        self.assertEqual(2, status)
+        self.assertEqual("", stderr.getvalue())
+        report = stdout.getvalue()
+        self.assertNotIn(":2:", report)
+        self.assertIn(":3:", report)
+        self.assertIn("DevelopmentCodeFragment", report)
+
     def test_disable_next_line_above_a_decorator_suppresses_the_decorated_definition(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             source = Path(temporary_directory) / "decorated.py"
