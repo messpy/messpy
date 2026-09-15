@@ -3038,8 +3038,9 @@ class _AnnotationReferenceCollector(ast.NodeVisitor):
     def visit_Lambda(self, _node: ast.Lambda) -> None:
         return
 
-    def visit_ClassDef(self, _node: ast.ClassDef) -> None:
-        return
+    def visit_ClassDef(self, node: ast.ClassDef) -> None:
+        for statement in node.body:
+            self.visit(statement)
 
 
 def _callable_annotation_name_loads(

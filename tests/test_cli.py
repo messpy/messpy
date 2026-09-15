@@ -3030,6 +3030,89 @@ class CommandAcceptanceTests(unittest.TestCase):
 
         self.assertEqual((0, "", ""), (status, stdout.getvalue(), stderr.getvalue()))
 
+    def test_unusedcode_keeps_outer_type_alias_used_by_nested_class_annotations_quiet(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            source = Path(temporary_directory) / "nested_class_annotation.py"
+            source.write_text(
+                "from __future__ import annotations\n"
+                "\n"
+                "def make_item():\n"
+                "    ItemType = int\n"
+                "\n"
+                "    class Item:\n"
+                "        val: ItemType\n"
+                "\n"
+                "    return Item\n",
+                encoding="utf-8",
+            )
+            stdout = StringIO()
+            stderr = StringIO()
+
+            status = run(
+                [str(source), "text", "unusedcode", "--only", "UnusedLocalVariable"],
+                stdout,
+                stderr,
+            )
+
+        self.assertEqual((0, "", ""), (status, stdout.getvalue(), stderr.getvalue()))
+
+    def test_unusedcode_keeps_outer_type_alias_used_by_nested_class_method_annotations_quiet(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            source = Path(temporary_directory) / "nested_class_method_annotation.py"
+            source.write_text(
+                "from __future__ import annotations\n"
+                "\n"
+                "def make_item():\n"
+                "    ItemType = int\n"
+                "\n"
+                "    class Item:\n"
+                "        def get(self, val: ItemType) -> ItemType:\n"
+                "            return val\n"
+                "\n"
+                "    return Item\n",
+                encoding="utf-8",
+            )
+            stdout = StringIO()
+            stderr = StringIO()
+
+            status = run(
+                [str(source), "text", "unusedcode", "--only", "UnusedLocalVariable"],
+                stdout,
+                stderr,
+            )
+
+        self.assertEqual((0, "", ""), (status, stdout.getvalue(), stderr.getvalue()))
+
+    def test_unusedcode_still_reports_unused_local_beside_nested_class_annotations(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            source = Path(temporary_directory) / "nested_class_unused_sibling.py"
+            source.write_text(
+                "from __future__ import annotations\n"
+                "\n"
+                "def make_item():\n"
+                "    ItemType = int\n"
+                "    Unused = str\n"
+                "\n"
+                "    class Item:\n"
+                "        val: ItemType\n"
+                "\n"
+                "    return Item\n",
+                encoding="utf-8",
+            )
+            stdout = StringIO()
+            stderr = StringIO()
+
+            status = run(
+                [str(source), "text", "unusedcode", "--only", "UnusedLocalVariable"],
+                stdout,
+                stderr,
+            )
+
+        self.assertEqual(2, status)
+        self.assertEqual("", stderr.getvalue())
+        self.assertEqual(1, stdout.getvalue().count("such as 'Unused'"))
+        self.assertNotIn("such as 'ItemType'", stdout.getvalue())
+
     def test_unusedcode_distinguishes_prebinding_and_shadowed_comprehension_names(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             source = Path(temporary_directory) / "comprehension_scopes.py"
