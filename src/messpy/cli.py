@@ -4071,9 +4071,23 @@ def _npath_try(node: ast.Try | ast.TryStar) -> int:
 
 
 def _npath_match(node: ast.Match) -> int:
-    return _npath_expression(node.subject) * sum(
+    case_paths = sum(
         _npath_block(case.body) + (_npath_expression(case.guard) if case.guard is not None else 0)
         for case in node.cases
+    )
+    if not any(
+        case.guard is None and _npath_match_pattern_is_irrefutable(case.pattern)
+        for case in node.cases
+    ):
+        case_paths += 1
+    return _npath_expression(node.subject) * case_paths
+
+
+def _npath_match_pattern_is_irrefutable(pattern: ast.AST) -> bool:
+    if isinstance(pattern, ast.MatchAs):
+        return pattern.pattern is None or _npath_match_pattern_is_irrefutable(pattern.pattern)
+    return isinstance(pattern, ast.MatchOr) and any(
+        _npath_match_pattern_is_irrefutable(option) for option in pattern.patterns
     )
 
 
