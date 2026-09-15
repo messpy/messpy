@@ -1807,22 +1807,25 @@ def _is_module_assignment(node: ast.AST, parents: dict[int, ast.AST]) -> bool:
     current = node
     while id(current) in parents:
         current = parents[id(current)]
-        if isinstance(current, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)):
-            return any(
-                isinstance(statement, ast.Global)
-                and isinstance(node, ast.Name)
-                and node.id in statement.names
-                and _same_function_scope(statement, current, parents)
-                for statement in ast.walk(current)
-            )
+        if isinstance(current, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda, ast.ClassDef)):
+            return _scope_declares_global(node, current, parents)
     return True
 
 
-def _same_function_scope(node: ast.AST, function: ast.AST, parents: dict[int, ast.AST]) -> bool:
+def _scope_declares_global(node: ast.AST, scope: ast.AST, parents: dict[int, ast.AST]) -> bool:
+    return isinstance(node, ast.Name) and any(
+        isinstance(statement, ast.Global)
+        and node.id in statement.names
+        and _same_scope(statement, scope, parents)
+        for statement in ast.walk(scope)
+    )
+
+
+def _same_scope(node: ast.AST, scope: ast.AST, parents: dict[int, ast.AST]) -> bool:
     current = node
     while id(current) in parents:
         current = parents[id(current)]
-        if current is function:
+        if current is scope:
             return True
         if isinstance(current, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda, ast.ClassDef)):
             return False
