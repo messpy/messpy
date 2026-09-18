@@ -93,3 +93,17 @@ artifacts:
 ## Maintainers
 
 Release process: [docs/releasing.md](https://github.com/quality-gates/messpy/blob/main/docs/releasing.md). Fuzzing: [docs/fuzzing.md](https://github.com/quality-gates/messpy/blob/main/docs/fuzzing.md).
+
+## olm-lite
+
+このリポジトリには、AIを必須にしない軽量CLI `olm` も含まれます。起動時に引数からモードを判定し、ローカルのJSONL履歴へ実行結果を保存します。検索は外部サービスを使わず、過去の出力との語彙類似度で行います。
+
+```console
+olm                 # 現在のディレクトリを解析
+olm path/to/file    # ファイルの構造を解析
+olm history --last 20
+olm history --failed --grep permission
+olm --ai            # Ollama未設定なら自動的にローカル検索へフォールバック
+```
+
+コマンド文字列は提案として表示し、対話的な確認なしには実行しません。`rm`、`dd`、`mkfs`、権限変更などの危険な操作は提案のみで停止します。履歴は `XDG_STATE_HOME` があればその配下、なければ `~/.local/state/olm-lite/history.jsonl` に保存されます。

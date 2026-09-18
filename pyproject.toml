@@ -16,6 +16,7 @@ fuzz = ["atheris>=2.3.0,<3"]
 
 [project.scripts]
 messpy = "messpy.cli:main"
+olm = "olm:main"
 
 [tool.hatch.version]
 path = "src/messpy/__init__.py"
